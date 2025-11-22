@@ -4,6 +4,31 @@
 #include <math.h>
 
 
+//venant de utils.c du professeur
+static char *getID(int i)
+{
+    static char buffer[10];
+    char temp[10];
+    int index = 0;
+
+    i--; // Adjust to 0-based index
+    while (i >= 0)
+    {
+        temp[index++] = 'A' + (i % 26);
+        i = (i / 26) - 1;
+    }
+
+    // Reverse the string to get the correct order
+    for (int j = 0; j < index; j++)
+    {
+        buffer[j] = temp[index - j - 1];
+    }
+    buffer[index] = '\0';
+
+    return buffer;
+}
+
+
 /*
  * Fonction : creerArete
  * ---------------------
@@ -73,11 +98,11 @@ void ajouterArete(t_arete *arete, t_sommet *sommet) {
  * Affiche toutes les arêtes d'un sommet sous forme :
  * [head @] -> (sommet_arrivee, probabilité) -> ... -> NULL
  */
-void affihcerSommet(t_sommet *sommet) {
+void afficherSommet(t_sommet *sommet) {
     t_arete * curr = sommet->head;
-    printf("[head @] -> ");
+    printf("[head] -> ");
     while (curr != NULL) {
-        printf("(%d, %.2f) -> ", curr->sommet_arrivee, curr->proba);
+        printf("(vers %d, p=%.2f) -> ", curr->sommet_arrivee, curr->proba);
         curr = curr->suiv;
     }
     printf("NULL\n");
@@ -252,4 +277,60 @@ void ecrireGraphe(listeAdjacence *g, const char *filename) {
     }
 
     fclose(file);
+}
+
+
+/*
+ * Fonction : genererMermaid
+ * -------------------------
+ * Étape 3 du projet : Génère un fichier texte compatible avec Mermaid
+ * pour visualiser le graphe.
+*/
+void genererMermaid(listeAdjacence *g, const char *filename) {
+    if (g == NULL) return;
+
+    FILE *file = fopen(filename, "w");
+    if (file == NULL) {
+        perror("Erreur ouverture fichier Mermaid");
+        exit(EXIT_FAILURE);
+    }
+
+
+    //nos entetes
+    fprintf(file, "---\n");
+    fprintf(file, "config:\n");
+    fprintf(file, "  layout: elk\n");
+    fprintf(file, "  theme: neo\n");
+    fprintf(file, "  look: neo\n");
+    fprintf(file, "---\n");
+    fprintf(file, "flowchart LR\n");
+
+    // 2. Déclaration des sommets : A((1))
+    // Pas de conflit ici car un seul appel à getID par ligne
+    for (int i = 0; i < g->taille; i++) {
+        fprintf(file, "%s((%d))\n", getID(i + 1), i + 1);
+    }
+
+    // 3. Déclaration des arêtes
+    // Astuce : on découpe le fprintf pour éviter le conflit de buffer
+    for (int i = 0; i < g->taille; i++) {
+        t_arete *curr = g->tab[i]->head;
+        while (curr != NULL) {
+            // Étape A : On écrit d'abord la source "A"
+            fprintf(file, "%s", getID(i + 1));
+
+            // Étape B : On écrit la flèche et la proba "-->|0.50|"
+            fprintf(file, "-->|%.2f|", curr->proba);
+
+            // Étape C : On écrit la destination "B" + saut de ligne
+            // Ici, getID réécrit dans le buffer, mais c'est pas grave car
+            // l'étape A est déjà finie et écrite dans le fichier !
+            fprintf(file, "%s\n", getID(curr->sommet_arrivee));
+
+            curr = curr->suiv;
+        }
+    }
+
+    fclose(file);
+    printf("Fichier Mermaid '%s' généré.\n", filename);
 }
